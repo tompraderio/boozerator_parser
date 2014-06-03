@@ -1,7 +1,8 @@
 import serial
+import time
 
 def scan_for_chars():
-    ser = serial.Serial('COM10', timeout=20)
+    ser = serial.Serial('COM10', timeout=40)
     while(1):
         header1 = ord(ser.read()) # first header
         if header1 == 85: 
@@ -35,70 +36,43 @@ def process_temp_frame(ser):
     # calc checksum
     check_total = (85+85+17+1+temp0_upper+temp0_lower+temp1_upper+temp1_lower+temp2_upper+temp2_lower+temp3_upper+temp3_lower+temp4_upper+temp4_lower+temp5_upper+temp5_lower+checksum) & 0xFF
     if check_total == 255: # If packet is good, convert the temps
-        temp0_raw = temp0_lower + (temp0_upper << 8)
-        temp1_raw = temp1_lower + (temp1_upper << 8)
-        temp2_raw = temp2_lower + (temp2_upper << 8)
-        temp3_raw = temp3_lower + (temp3_upper << 8)
-        temp4_raw = temp4_lower + (temp4_upper << 8)
-        temp5_raw = temp5_lower + (temp5_upper << 8)
+        temps_raw = [temp0_lower + (temp0_upper << 8)]
+        temps_raw.append(temp1_lower + (temp1_upper << 8))
+        temps_raw.append(temp2_lower + (temp2_upper << 8))
+        temps_raw.append(temp3_lower + (temp3_upper << 8))
+        temps_raw.append(temp4_lower + (temp4_upper << 8))
+        temps_raw.append(temp5_lower + (temp5_upper << 8))
 
+        temps_c = [0] * len(temps_raw)
+        temps_f = [0] * len(temps_raw)
         
         # make sure the sensors are connected
-        if temp0_raw != 65535:
-            #check sign
-            if temp0_raw > 32767:
-                temp0_c = (0-(-temp0_raw & 65535))*0.0625
+        for i in range(len(temps_raw)):
+            if temps_raw[i] != 65535:
+                #check sign
+                if temps_raw[i] > 32767:
+                    temps_c[i] = (0-(-temps_raw[i] & 65535)) * 0.0625
+                else:
+                    temps_c[i] = temps_raw[i] * 0.0625
+                
+                temps_f[i] = temps_c[i] * 1.8 + 32.0
+                print "temp"+str(i)+": ", temps_f[i], "\n"
             else:
-                temp0_c = temp0_raw*0.0625
-            
-            temp0_f = temp0_c *1.8 + 32.0
-            print "temp0: ", temp0_f, "\n"
-        else:
-            print "temp0: Not Connected\n"
+                temps_f[i] = 0.0
+                print "temp"+str(i)+": Not Connected\n"        
 
-        if temp1_raw != 65535:
-            if temp1_raw > 32767:
-                temp1_c = (0-(-temp1_raw & 65535))*0.0625
-            else:
-                temp1_c = temp1_raw*0.0625
-            temp1_f = temp1_c *1.8 + 32.0
-            print "temp1: ", temp1_f, "\n"
-        else:
-            print "temp1: Not Connected\n"
-
-        if temp2_raw != 65535:
-            temp2_c = temp2_raw*0.0625
-            temp2_f = temp2_c *1.8 + 32.0
-            print "temp2: ", temp2_f, "\n"
-        else:
-            print "temp2: Not Connected\n"
-
-        if temp3_raw != 65535:
-            temp3_c = temp3_raw*0.0625
-            temp3_f = temp3_c *1.8 + 32.0
-            print "temp3: ", temp3_f, "\n"
-        else:
-            print "temp3: Not Connected\n"
-
-        if temp4_raw != 65535:
-            temp4_c = temp4_raw*0.0625
-            temp4_f = temp4_c *1.8 + 32.0
-            print "temp4: ", temp4_f, "\n"
-        else:
-            print "temp4: Not Connected\n"
-
-        if temp5_raw != 65535:
-            temp5_c = temp5_raw*0.0625
-            temp5_f = temp5_c *1.8 + 32.0
-            print "temp5: ", temp5_f, "\n"
-        else:
-            print "temp5: Not Connected\n"
-
+        # log the temps
+        f = open('temps.log','a')
+        f.write(time.strftime("%c") + ',')
+        for i in range(len(temps_f)):
+            f.write(str(temps_f[i])+',')
+        f.write('\n')
+        f.close()
+        
         print '\n'
     else:
         print "Invalid checksum\n"
-
-        
+    
 
 def process_state_frame(ser):
     fridge_state = ord(ser.read())
